@@ -5,17 +5,28 @@ import "core:time"
 
 import SDL "vendor:sdl2"
 
-SNAKE_SPEED :: 0.9
+NS_PER_SEC :: 1e+9
+SNAKE_SPEED: f32: 0.000001 
+
+directions :: enum {
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN
+}
 
 
 Vector2 :: struct {
     x, y: f32,
 }
 
-VEC2LEFT :: Vector2{-1, 0}
-VEC2RIGHT :: Vector2{1, 0}
-VEC2UP :: Vector2{0, 1}
-VEC2DOWN :: Vector2{0, -1}
+LEFT:   Vector2:    Vector2{-1, 0}
+RIGHT:  Vector2:    Vector2{1, 0}
+UP:     Vector2:    Vector2{0, 1}
+DOWN:   Vector2:    Vector2{0, -1}
+
+
+
 
 State :: struct {
     window:     ^SDL.Window,
@@ -23,6 +34,7 @@ State :: struct {
     texture:    ^SDL.Texture,
     snake:      struct {
                     head_pos, dir:  Vector2,
+                    diren:          directions,
                     },
 
     time:       struct {
@@ -40,9 +52,8 @@ vecAdd :: proc(u, v: ^Vector2) {
     u.y += v.y
 }
 
-vecMul :: proc(u: ^Vector2, s: f32) {
-    u.x *= s
-    u.y *= s
+vecMul :: proc(u: ^Vector2, s: f32) -> Vector2{
+    return Vector2{u.x*s, u.y*s}
 }
 
 
@@ -53,7 +64,7 @@ main :: proc() {
     state: State
 
     // create window
-    state.window = SDL.CreateWindow("SNAKES AND LADDERS WITHOUT THE LADDERS", 100, 200, 800, 800, {})
+    state.window = SDL.CreateWindow("SNAKES AND LADDERS WITHOUT THE LADDERS", 0, 0, 640, 1080, {SDL.WindowFlag.BORDERLESS})
     if state.window == nil {
         fmt.eprintln("window bad")
         return
@@ -84,7 +95,7 @@ main :: proc() {
 
     event: SDL.Event
     loop: for {
-        NS_PER_SEC :: 1e+9
+        
 
         now := time.to_unix_nanoseconds(time.now())
 
@@ -102,43 +113,54 @@ main :: proc() {
         }
         
         // update snake
-        //vecMul(&state.snake.dir, SNAKE_SPEED)
+        state.snake.dir.x *= SNAKE_SPEED * state.time.delta
+        state.snake.dir.y *= SNAKE_SPEED * state.time.delta
         vecAdd(&state.snake.head_pos, &state.snake.dir)
-        
+
+        fmt.println(state.snake.head_pos)
+
+
 
         for SDL.PollEvent(&event) {
             #partial switch event.type {
                 case .KEYDOWN:
                     #partial switch event.key.keysym.sym {
                         case .A, .LEFT, .J:
-                            if state.snake.dir == VEC2RIGHT {
+                            if state.snake.diren == directions.RIGHT {
                                 continue
                             }
-                            state.snake.dir = VEC2LEFT
-                        case .D, .RIGHT, .L:
-                            if state.snake.dir == VEC2LEFT {
-                                continue
-                            }
-                            state.snake.dir = VEC2RIGHT
-                        case .S, .DOWN, .K:
-                            if state.snake.dir == VEC2UP {
-                                continue
-                            }
-                            state.snake.dir = VEC2DOWN
+                            state.snake.diren = directions.LEFT
+                            state.snake.dir = LEFT
 
-                            
-                        case .W, .UP, .I:
-                            if state.snake.dir == VEC2DOWN {
+                        case .D, .RIGHT, .L:
+                            if state.snake.diren == directions.LEFT {
                                 continue
                             }
-                            state.snake.dir = VEC2UP
+                            state.snake.diren = directions.RIGHT
+                            state.snake.dir = RIGHT
+
+                        case .S, .DOWN, .K:
+                            if state.snake.diren == directions.UP {
+                                continue
+                            }
+                            state.snake.diren = directions.DOWN
+                            state.snake.dir = DOWN
+
+                        case .W, .UP, .I:
+                            if state.snake.diren == directions.DOWN {
+                                continue
+                            }
+                            state.snake.diren = directions.UP
+                            state.snake.dir = UP
+                        case .ESCAPE:
+                            break loop
                     }
                 case .QUIT:
                     break loop
             }
-            
-        }
         
+        
+        } 
 
 
         SDL.SetRenderTarget(state.renderer, state.texture)
@@ -152,7 +174,7 @@ main :: proc() {
 
         // draw texture to screen
         SDL.SetRenderTarget(state.renderer, nil)
-        SDL.RenderCopyEx(state.renderer, state.texture, nil, nil, 0.0, nil, .NONE)
+        SDL.RenderCopyEx(state.renderer, state.texture, nil, nil, 0.0, nil, .VERTICAL)
 
         SDL.RenderPresent(state.renderer)
         
